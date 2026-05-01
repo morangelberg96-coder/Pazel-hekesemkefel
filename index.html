@@ -1,0 +1,510 @@
+```html
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>פאזל הקסם: גרסת הנקודות</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Rubik', sans-serif;
+            /* New Design: Light Brown (Beige) with Light Blue Dots */
+            background-color: #fdf8f0; /* Light Brown/Cream */
+            background-image: radial-gradient(#8ec5fc 3px, transparent 3px);
+            background-size: 24px 24px; /* Space between dots */
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Math Text Fix */
+        .math-text {
+            direction: ltr !important;
+            unicode-bidi: bidi-override !important;
+            display: inline-block;
+            font-variant-numeric: tabular-nums;
+            font-family: monospace, sans-serif; 
+        }
+
+        /* Puzzle Styling */
+        .puzzle-wrapper {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            margin: 0 auto;
+            border: 6px solid #fff;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            background-color: #e2e8f0; 
+        }
+
+        .puzzle-content {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 1;
+        }
+        
+        .fallback-content {
+            display: none;
+            width: 100%; height: 100%;
+            align-items: center; justify-content: center;
+            font-size: 8rem;
+        }
+
+        .puzzle-grid {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            grid-template-rows: repeat(4, 1fr); 
+            z-index: 10; 
+        }
+
+        .tile {
+            background-color: #fdfbf7; 
+            border: 1px solid #e5e7eb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+            color: #9ca3af;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .tile.revealed {
+            opacity: 0 !important;
+            pointer-events: none;
+        }
+
+        /* UI Elements */
+        .btn-press:active { transform: scale(0.96); }
+        
+        .num-btn { transition: all 0.2s; }
+        .num-btn.selected {
+            background-color: #3b82f6; /* Blue-500 */
+            color: white;
+            border-color: #2563eb;
+            box-shadow: 0 4px 6px rgba(59, 130, 246, 0.4);
+        }
+
+        .difficulty-btn {
+            @apply border-2 border-gray-300 text-gray-400 py-2 px-4 rounded-xl font-bold transition duration-200 bg-white;
+        }
+        .difficulty-btn.active {
+            @apply border-orange-400 bg-orange-50 text-orange-600 shadow-sm transform scale-105;
+        }
+
+        .shake { animation: shake 0.4s cubic-bezier(.36,.07,.19,.97) both; }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+        
+        .victory-fallback-emoji {
+            font-size: 8rem;
+            animation: bounce 2s infinite;
+        }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center p-2">
+
+    <!-- App Container -->
+    <div class="bg-white/90 backdrop-blur rounded-[1.5rem] p-4 w-full max-w-xl shadow-xl min-h-[600px] flex flex-col relative border-2 border-white/60">
+
+        <!-- Home Button -->
+        <button id="global-home-btn" onclick="goHome()" class="hidden absolute top-4 left-4 bg-white/80 text-gray-600 p-2 px-3 rounded-xl z-50 btn-press font-bold text-sm shadow-sm border border-gray-100">
+            🏠 בית
+        </button>
+
+        <!-- --- SCREEN 1: SETUP --- -->
+        <div id="setup-screen" class="flex flex-col items-center justify-center flex-grow text-center w-full py-4">
+            <h1 class="text-4xl font-black text-blue-600 mb-1 tracking-tight">פאזל הקסם 🧩</h1>
+            <p class="text-gray-500 mb-4 text-sm font-medium">בחרו את הכפולות לתרגול:</p>
+
+            <!-- Numbers Grid -->
+            <div class="grid grid-cols-5 gap-2 mb-6 w-full px-2 max-w-sm">
+                <button onclick="toggleNumber(1)" id="btn-1" class="num-btn bg-white border border-gray-200 text-gray-400 text-lg font-bold py-3 rounded-lg">1</button>
+                <button onclick="toggleNumber(2)" id="btn-2" class="num-btn selected bg-white border border-gray-200 text-gray-400 text-lg font-bold py-3 rounded-lg">2</button>
+                <button onclick="toggleNumber(3)" id="btn-3" class="num-btn bg-white border border-gray-200 text-gray-400 text-lg font-bold py-3 rounded-lg">3</button>
+                <button onclick="toggleNumber(4)" id="btn-4" class="num-btn bg-white border border-gray-200 text-gray-400 text-lg font-bold py-3 rounded-lg">4</button>
+                <button onclick="toggleNumber(5)" id="btn-5" class="num-btn selected bg-white border border-gray-200 text-gray-400 text-lg font-bold py-3 rounded-lg">5</button>
+                <button onclick="toggleNumber(6)" id="btn-6" class="num-btn bg-white border border-gray-200 text-gray-400 text-lg font-bold py-3 rounded-lg">6</button>
+                <button onclick="toggleNumber(7)" id="btn-7" class="num-btn bg-white border border-gray-200 text-gray-400 text-lg font-bold py-3 rounded-lg">7</button>
+                <button onclick="toggleNumber(8)" id="btn-8" class="num-btn bg-white border border-gray-200 text-gray-400 text-lg font-bold py-3 rounded-lg">8</button>
+                <button onclick="toggleNumber(9)" id="btn-9" class="num-btn bg-white border border-gray-200 text-gray-400 text-lg font-bold py-3 rounded-lg">9</button>
+                <button onclick="toggleNumber(10)" id="btn-10" class="num-btn selected bg-white border border-gray-200 text-gray-400 text-lg font-bold py-3 rounded-lg">10</button>
+            </div>
+
+            <!-- Difficulty Toggle -->
+            <div class="mb-6 w-full px-8">
+                <p class="text-gray-400 text-xs font-bold uppercase mb-2">רמת קושי</p>
+                <div class="flex gap-3 justify-center">
+                    <button onclick="setDifficulty('normal')" id="diff-normal" class="difficulty-btn active w-1/2">
+                        🙂 רגיל
+                    </button>
+                    <button onclick="setDifficulty('hard')" id="diff-hard" class="difficulty-btn w-1/2">
+                        🌶️ מאתגר
+                    </button>
+                </div>
+                <p id="diff-desc" class="text-xs text-orange-500 mt-2 font-medium min-h-[1rem]">תרגילים רגילים עד 10</p>
+            </div>
+
+            <div class="text-red-500 h-5 mb-2 font-bold text-sm" id="setup-error"></div>
+
+            <button onclick="startGame()" class="w-full max-w-xs bg-gradient-to-r from-blue-500 to-indigo-500 text-white text-xl font-bold py-4 rounded-xl shadow-lg btn-press">
+                התחל משחק 🚀
+            </button>
+        </div>
+
+        <!-- --- SCREEN 2: GAME --- -->
+        <div id="game-screen" class="hidden flex flex-col h-full flex-grow items-center w-full pt-6">
+            
+            <!-- Puzzle Area -->
+            <div class="puzzle-wrapper mb-3">
+                <img id="game-img" src="" class="puzzle-content object-cover" onerror="useFallback()">
+                <div id="game-fallback" class="puzzle-content fallback-content bg-blue-50">
+                    <span id="game-emoji">🦁</span>
+                </div>
+                <div id="puzzle-grid" class="puzzle-grid"></div>
+            </div>
+            
+            <!-- Progress -->
+            <div class="flex items-center gap-2 mb-4">
+                <div class="w-32 bg-gray-100 rounded-full h-2 overflow-hidden">
+                    <div id="progress-bar" class="bg-blue-500 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+                <span class="text-xs text-gray-500 font-bold">נותרו <span id="tiles-count">20</span></span>
+            </div>
+
+            <!-- Question Area -->
+            <div class="w-full px-2 flex flex-col items-center">
+                
+                <!-- AI Hint -->
+                <div id="ai-bubble" class="hidden w-full bg-yellow-50 border border-yellow-200 p-3 rounded-xl mb-3 relative text-right">
+                    <button onclick="hideAi()" class="absolute top-1 left-2 text-gray-400">✕</button>
+                    <div class="text-sm text-yellow-900 pr-1" id="ai-text"></div>
+                </div>
+
+                <!-- Math Question (LTR forced) -->
+                <div class="bg-white border-2 border-blue-50 p-4 rounded-2xl w-full text-center mb-4 shadow-sm">
+                    <p class="text-gray-400 text-[10px] font-bold uppercase mb-1">השלימו את החסר</p>
+                    <div id="question-display" class="math-text text-4xl md:text-5xl font-black text-slate-800">
+                        <!-- Example: 5 x ? = 15 -->
+                    </div>
+                </div>
+
+                <!-- Options -->
+                <div id="options-container" class="grid grid-cols-3 gap-2 w-full mb-4"></div>
+
+                <!-- Strategy Btn -->
+                <button onclick="askStrategy()" class="text-blue-500 text-sm font-bold underline mb-2 hover:text-blue-700">
+                    💡 צריך רמז?
+                </button>
+                
+                <div id="feedback-area" class="h-6 font-bold text-lg text-center"></div>
+            </div>
+        </div>
+
+        <!-- --- SCREEN 3: VICTORY --- -->
+        <div id="victory-screen" class="hidden absolute inset-0 z-50 bg-white/95 flex flex-col items-center justify-center text-center p-4">
+            <h1 class="text-4xl font-black text-green-500 mb-4">אלופים! 🎉</h1>
+            
+            <div class="relative w-64 h-64 mb-6 rounded-2xl overflow-hidden shadow-2xl border-4 border-gray-100 bg-gray-50 flex items-center justify-center">
+                <img id="victory-img" src="" class="w-full h-full object-cover" onerror="this.style.display='none'; document.getElementById('vic-fallback').style.display='flex'">
+                <div id="vic-fallback" class="hidden w-full h-full bg-blue-50 flex-col items-center justify-center">
+                    <span id="vic-emoji" class="victory-fallback-emoji">🦁</span>
+                </div>
+            </div>
+
+            <button onclick="startGame()" class="bg-blue-600 text-white text-lg font-bold py-3 px-8 rounded-xl shadow-lg btn-press">
+                 משחק חדש 🔄
+            </button>
+        </div>
+
+    </div>
+
+    <script>
+        // --- Robust Themes ---
+        const themes = [
+            { url: "https://images.unsplash.com/photo-1546182990-dffeafbe841d?w=600&q=80", emoji: "🦁", color: "bg-orange-100" },
+            { url: "https://images.unsplash.com/photo-1535378437323-9555f3e7f5bb?w=600&q=80", emoji: "🤖", color: "bg-blue-100" },
+            { url: "https://images.unsplash.com/photo-1548266652-99cf277df528?w=600&q=80", emoji: "🦊", color: "bg-red-100" },
+            { url: "https://images.unsplash.com/photo-1596496356999-52d3a339903e?w=600&q=80", emoji: "🚀", color: "bg-indigo-100" },
+            { url: "https://images.unsplash.com/photo-1599692482390-3330628e8331?w=600&q=80", emoji: "🏰", color: "bg-pink-100" },
+            { url: "https://images.unsplash.com/photo-1565985864115-3f9c6d4825d1?w=600&q=80", emoji: "🦸", color: "bg-yellow-100" },
+            { url: "https://images.unsplash.com/photo-1555169062-013468b47731?w=600&q=80", emoji: "🦜", color: "bg-green-100" }
+        ];
+
+        // --- State ---
+        let selectedTables = [2, 5, 10]; 
+        let difficulty = 'normal'; 
+        let tilesRemaining = [];
+        let currentQ = null;
+        let isProcessing = false;
+        let currentTheme = null;
+        const apiKey = ""; 
+
+        // --- Elements ---
+        const screens = { setup: document.getElementById('setup-screen'), game: document.getElementById('game-screen'), victory: document.getElementById('victory-screen') };
+        const gameImg = document.getElementById('game-img');
+        const gameFallback = document.getElementById('game-fallback');
+        const gameEmoji = document.getElementById('game-emoji');
+        const victoryImg = document.getElementById('victory-img');
+        const vicFallback = document.getElementById('vic-fallback');
+        const vicEmoji = document.getElementById('vic-emoji');
+        const puzzleGrid = document.getElementById('puzzle-grid');
+        const questionDisplay = document.getElementById('question-display');
+        const optionsContainer = document.getElementById('options-container');
+        const feedbackArea = document.getElementById('feedback-area');
+        const globalHomeBtn = document.getElementById('global-home-btn');
+        const diffDesc = document.getElementById('diff-desc');
+
+        // --- Setup ---
+        function toggleNumber(num) {
+            const btn = document.getElementById(`btn-${num}`);
+            if (selectedTables.includes(num)) {
+                if (selectedTables.length > 1) {
+                    selectedTables = selectedTables.filter(n => n !== num);
+                    btn.classList.remove('selected');
+                }
+            } else {
+                selectedTables.push(num);
+                btn.classList.add('selected');
+            }
+        }
+
+        function setDifficulty(level) {
+            difficulty = level;
+            document.getElementById('diff-normal').className = `difficulty-btn w-1/2 ${level === 'normal' ? 'active' : ''}`;
+            document.getElementById('diff-hard').className = `difficulty-btn w-1/2 ${level === 'hard' ? 'active' : ''}`;
+            
+            if (level === 'hard') {
+                diffDesc.innerText = "נעלמים, בלי כפל ב-1 ו-10!";
+                diffDesc.className = "text-xs text-red-500 mt-2 font-medium h-4";
+            } else {
+                diffDesc.innerText = "תרגילים רגילים עד 10";
+                diffDesc.className = "text-xs text-orange-500 mt-2 font-medium h-4";
+            }
+        }
+
+        function goHome() {
+            screens.victory.classList.add('hidden');
+            screens.game.classList.add('hidden');
+            screens.setup.classList.remove('hidden');
+            globalHomeBtn.classList.add('hidden');
+        }
+
+        function useFallback() {
+            gameImg.style.display = 'none';
+            gameFallback.style.display = 'flex';
+            gameFallback.className = `puzzle-content fallback-content flex ${currentTheme.color}`;
+            gameEmoji.innerText = currentTheme.emoji;
+            
+            victoryImg.style.display = 'none';
+            vicFallback.style.display = 'flex';
+            vicFallback.className = `w-full h-full flex flex-col items-center justify-center ${currentTheme.color}`;
+            vicEmoji.innerText = currentTheme.emoji;
+        }
+
+        function startGame() {
+            if (selectedTables.length === 0) return;
+            document.getElementById('setup-error').innerText = "";
+
+            currentTheme = themes[Math.floor(Math.random() * themes.length)];
+
+            // Reset Images
+            gameImg.style.display = 'block';
+            gameImg.src = currentTheme.url; 
+            gameFallback.style.display = 'none';
+            victoryImg.style.display = 'block';
+            victoryImg.src = currentTheme.url;
+            vicFallback.style.display = 'none';
+
+            // Grid
+            tilesRemaining = Array.from({length: 20}, (_, i) => i);
+            puzzleGrid.innerHTML = '';
+            for (let i = 0; i < 20; i++) {
+                const tile = document.createElement('div');
+                tile.className = 'tile';
+                tile.id = `tile-${i}`;
+                tile.innerText = i + 1;
+                puzzleGrid.appendChild(tile);
+            }
+            updateUI();
+
+            screens.setup.classList.add('hidden');
+            screens.victory.classList.add('hidden');
+            screens.game.classList.remove('hidden');
+            screens.game.classList.add('flex');
+            globalHomeBtn.classList.remove('hidden');
+
+            nextTurn();
+        }
+
+        function updateUI() {
+            const rem = tilesRemaining.length;
+            document.getElementById('tiles-count').innerText = rem;
+            document.getElementById('progress-bar').style.width = `${((20-rem)/20)*100}%`;
+        }
+
+        // --- Game Logic ---
+        function nextTurn() {
+            if (tilesRemaining.length === 0) {
+                setTimeout(() => {
+                    screens.game.classList.add('hidden');
+                    screens.game.classList.remove('flex');
+                    screens.victory.classList.remove('hidden');
+                    screens.victory.classList.add('flex');
+                }, 1500);
+                return;
+            }
+            isProcessing = false;
+            feedbackArea.innerText = '';
+            document.getElementById('ai-bubble').classList.add('hidden');
+            generateQuestion();
+        }
+
+        function generateQuestion() {
+            // Pick a base from user selection
+            const base = selectedTables[Math.floor(Math.random() * selectedTables.length)];
+            
+            // --- LOGIC FOR HARD MODE vs NORMAL ---
+            
+            // Calculate limit to stay under 100
+            const maxAllowed = Math.floor(100 / base);
+            let maxFactor = 10;
+            if (difficulty === 'hard') maxFactor = 12;
+            const actualMax = Math.min(maxFactor, maxAllowed);
+            
+            let other;
+
+            if (difficulty === 'hard') {
+                // HARD MODE CONSTRAINT: NO 1 and NO 10 allowed as factors
+                // Also, prefer higher numbers if possible
+                do {
+                    other = Math.floor(Math.random() * actualMax) + 1;
+                } while (other === 1 || other === 10);
+            } else {
+                // Normal mode: anything goes (1-10)
+                other = Math.floor(Math.random() * actualMax) + 1;
+            }
+
+            const isMult = Math.random() > 0.5;
+            let qStr, ans, op;
+            let type = 'standard'; 
+
+            // Hard mode: 75% chance of missing variable
+            if (difficulty === 'hard' && Math.random() > 0.25) {
+                type = 'missing';
+            }
+
+            if (isMult) {
+                const product = base * other;
+                
+                if (type === 'missing') {
+                    if (Math.random() > 0.5) {
+                        qStr = `? × ${base} = ${product}`;
+                        ans = other;
+                    } else {
+                        qStr = `${base} × ? = ${product}`;
+                        ans = other;
+                    }
+                } else {
+                    if (Math.random() > 0.5) qStr = `${base} × ${other} = ?`;
+                    else qStr = `${other} × ${base} = ?`;
+                    ans = product;
+                }
+                op = 'mult';
+
+            } else {
+                const dividend = base * other;
+                
+                if (type === 'missing') {
+                    qStr = `? : ${base} = ${other}`;
+                    ans = dividend;
+                } else {
+                    qStr = `${dividend} : ${base} = ?`;
+                    ans = other;
+                }
+                op = 'div';
+            }
+
+            currentQ = { text: qStr, answer: ans, base, other, op };
+            questionDisplay.innerText = qStr; 
+            renderOptions(ans);
+        }
+
+        function renderOptions(correct) {
+            optionsContainer.innerHTML = '';
+            let opts = new Set([correct]);
+            while (opts.size < 3) {
+                let off = Math.floor(Math.random()*5)+1;
+                if(Math.random()>0.5) off*=-1;
+                let w = correct+off;
+                if(w<=0) w = correct + Math.abs(off) + 1; 
+                if(w!==correct) opts.add(w);
+            }
+            Array.from(opts).sort(()=>Math.random()-0.5).forEach(o => {
+                const b = document.createElement('button');
+                b.innerText = o;
+                b.className = "bg-white border-b-4 border-blue-200 text-blue-600 text-2xl font-bold py-3 rounded-xl active:border-b-0 active:translate-y-1 shadow-sm";
+                b.onclick = () => check(o, b);
+                optionsContainer.appendChild(b);
+            });
+        }
+
+        function check(val, btn) {
+            if(isProcessing) return;
+            if (val === currentQ.answer) {
+                isProcessing = true;
+                btn.className = "bg-green-500 text-white border-b-4 border-green-700 text-2xl font-bold py-3 rounded-xl shadow-lg scale-105";
+                feedbackArea.innerHTML = '<span class="text-green-500">נכון!</span>';
+                
+                const rIdx = Math.floor(Math.random()*tilesRemaining.length);
+                const tId = tilesRemaining[rIdx];
+                tilesRemaining.splice(rIdx, 1);
+                document.getElementById(`tile-${tId}`).classList.add('revealed');
+                updateUI();
+                
+                setTimeout(nextTurn, tilesRemaining.length===0 ? 1000 : 800);
+            } else {
+                btn.className += " bg-red-100 border-red-300 text-red-500 shake";
+                setTimeout(() => btn.className = "bg-white border-b-4 border-blue-200 text-blue-600 text-2xl font-bold py-3 rounded-xl", 500);
+                feedbackArea.innerHTML = '<span class="text-red-400">לא נכון...</span>';
+            }
+        }
+
+        // --- AI ---
+        function hideAi() { document.getElementById('ai-bubble').classList.add('hidden'); }
+        async function askStrategy() {
+            if(isProcessing) return;
+            const el = document.getElementById('ai-bubble');
+            const txt = document.getElementById('ai-text');
+            el.classList.remove('hidden');
+            txt.innerText = "טוען רמז...";
+            
+            setTimeout(() => {
+                if (currentQ.text.includes('?')) {
+                     txt.innerText = "יש כאן נעלם! נסה להפוך את התרגיל. (כפל הופך לחילוק ולהפך)";
+                } else if (currentQ.op === 'div') {
+                    txt.innerText = `נסה לספור בדילוגים של ${currentQ.base} עד שתגיע ל-${currentQ.answer * currentQ.base}.`;
+                } else {
+                    txt.innerText = `חיבור חוזר: ${currentQ.base} ועוד ${currentQ.base}... ככה ${currentQ.other} פעמים.`;
+                }
+            }, 500);
+        }
+    </script>
+</body>
+</html>
+
+```
